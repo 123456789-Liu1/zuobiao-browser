@@ -1,5 +1,10 @@
 # 坐标浏览器 · Zuobiao Browser
 
+[![Release](https://img.shields.io/github/v/release/123456789-Liu1/zuobiao-browser)](https://github.com/123456789-Liu1/zuobiao-browser/releases)
+[![License](https://img.shields.io/github/license/123456789-Liu1/zuobiao-browser)](LICENSE)
+
+**下载 APK**：[Releases](https://github.com/123456789-Liu1/zuobiao-browser/releases) · **源码**：[GitHub](https://github.com/123456789-Liu1/zuobiao-browser)
+
 把 8 款主流浏览器拆开分析之后，挑出「真正有用、且不靠内容生态」的那批能力，做成的一个轻量 Android 浏览器。
 
 - 内核：系统 WebView（不自带 Chromium）
