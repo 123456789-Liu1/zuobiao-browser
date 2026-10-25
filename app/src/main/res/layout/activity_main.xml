@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:focusableInTouchMode="true"
+    android:background="@color/bg">
+
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="8dp"
+        android:paddingRight="4dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <FrameLayout
+            android:id="@+id/urlWrap"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1">
+
+            <!-- 常态：只读域名条，点击才进入输入态 -->
+            <LinearLayout
+                android:id="@+id/urlView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_url"
+                android:paddingLeft="14dp"
+                android:paddingRight="10dp">
+
+                <TextView
+                    android:id="@+id/urlShield"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingRight="7dp"
+                    android:text="安"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:alpha="0.55" />
+
+                <TextView
+                    android:id="@+id/urlText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:singleLine="true"
+                    android:ellipsize="middle"
+                    android:textColor="@color/text"
+                    android:textSize="13.5sp"
+                    android:text="@string/search_hint" />
+
+                <TextView
+                    android:id="@+id/urlCaret"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingLeft="6dp"
+                    android:text="▾"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/urlBar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_url"
+                android:paddingLeft="14dp"
+                android:paddingRight="14dp"
+                android:hint="@string/search_hint"
+                android:textColorHint="@color/text_dim"
+                android:textColor="@color/text"
+                android:textColorHighlight="#554C9AFF"
+                android:textSize="13.5sp"
+                android:singleLine="true"
+                android:imeOptions="actionGo"
+                android:inputType="textUri"
+                android:visibility="gone"
+                android:importantForAutofill="no" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/btnStop"
+            style="@style/ToolIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="✕"
+            android:textSize="16sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:max="100"
+        android:progressTint="@color/accent"
+        android:progressBackgroundTint="@color/surface"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/refresh"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:id="@+id/webContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <TextView
+            android:id="@+id/sniffFab"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="14dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:gravity="center"
+            android:text="◎ 0"
+            android:textColor="#0B1220"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_fab"
+            android:elevation="6dp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/findBar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/surface"
+        android:paddingLeft="10dp"
+        android:paddingRight="4dp"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/findInput"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_url"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:hint="@string/find_in_page"
+            android:textColorHint="@color/text_dim"
+            android:textColor="@color/text"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:inputType="text"
+            android:imeOptions="actionSearch" />
+
+        <TextView
+            android:id="@+id/findCount"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:minWidth="52dp"
+            android:textColor="@color/text_sub"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/findPrev"
+            style="@style/ToolIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="↑"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/findNext"
+            style="@style/ToolIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="↓"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/findClose"
+            style="@style/ToolIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="✕"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/stroke" />
+
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@color/bg">
+
+        <TextView
+            android:id="@+id/btnBack"
+            style="@style/ToolIcon"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="←" />
+
+        <TextView
+            android:id="@+id/btnForward"
+            style="@style/ToolIcon"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="→" />
+
+        <TextView
+            android:id="@+id/btnHome"
+            style="@style/ToolIcon"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="⌂" />
+
+        <TextView
+            android:id="@+id/btnTabs"
+            style="@style/ToolIcon"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="▢ 1"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/btnMenu"
+            style="@style/ToolIcon"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="⋮"
+            android:textSize="21sp" />
+    </LinearLayout>
+</LinearLayout>

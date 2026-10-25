@@ -1,0 +1,25 @@
+# Gradle / Android
+.gradle/
+build/
+app/build/
+local.properties
+
+# 签名（绝不入库）
+keystore.jks
+keystore.properties
+*.jks
+*.keystore
+
+# 构建产物（APK 走 GitHub Release 附件）
+*.apk
+*.aab
+*.bak
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# 日志
+*.log
