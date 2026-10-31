@@ -119,6 +119,40 @@ final class Prefs {
     boolean cinemaAuto() { return sp.getBoolean("cinema_auto", false); }
     void cinemaAuto(boolean v) { sp.edit().putBoolean("cinema_auto", v).apply(); }
 
+    // ---- 网络：加载救援 / 省流 / 代理 ----
+    boolean rescue() { return sp.getBoolean("rescue", true); }
+    void rescue(boolean v) { sp.edit().putBoolean("rescue", v).apply(); }
+
+    boolean liteMode() { return sp.getBoolean("lite", false); }
+    void liteMode(boolean v) { sp.edit().putBoolean("lite", v).apply(); }
+
+    boolean proxyEnabled() { return sp.getBoolean("proxy_on", false); }
+    void proxyEnabled(boolean v) { sp.edit().putBoolean("proxy_on", v).apply(); }
+
+    /** http 或 socks */
+    String proxyType() { return sp.getString("proxy_type", "http"); }
+    String proxyHost() { return sp.getString("proxy_host", ""); }
+    int proxyPort() { return sp.getInt("proxy_port", 0); }
+    String proxyUser() { return sp.getString("proxy_user", ""); }
+    String proxyPass() { return sp.getString("proxy_pass", ""); }
+    String proxyBypass() { return sp.getString("proxy_bypass", ""); }
+
+    void proxy(String type, String host, int port, String user, String pass, String bypass) {
+        sp.edit().putString("proxy_type", type)
+                .putString("proxy_host", host)
+                .putInt("proxy_port", port)
+                .putString("proxy_user", user)
+                .putString("proxy_pass", pass)
+                .putString("proxy_bypass", bypass)
+                .apply();
+    }
+
+    String proxyRule() {
+        String host = proxyHost();
+        if (host == null || host.isEmpty() || proxyPort() <= 0) return "";
+        return proxyType() + "://" + host + ":" + proxyPort();
+    }
+
     // ---- 安全模式（严格） ----
     boolean safeMode() { return cSafe; }
 

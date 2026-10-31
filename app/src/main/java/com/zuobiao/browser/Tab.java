@@ -39,6 +39,7 @@ final class Tab {
         Tab createTabForWindow();
         void requestPermissions(String[] resources);
         void onSslWarning(Tab t, SslErrorHandler handler, String url);
+        void onLoadTimeout(Tab t);
     }
 
     final WebView web;
@@ -51,6 +52,10 @@ final class Tab {
     boolean safeMode;
     boolean internalPage;
     int safeBlocked;
+    boolean lite;
+    boolean rescueTried;
+    private boolean pageLoading;
+    private Runnable timeoutCheck;
     private androidx.webkit.ScriptHandler safeHandle;
     private SniffBridge bridge;
     String url = "";
@@ -65,6 +70,9 @@ final class Tab {
         this.prefs = prefs;
         this.host = host;
         this.incognito = incognito;
+        this.timeoutCheck = () -> {
+            if (pageLoading) host.onLoadTimeout(Tab.this);
+        };
         web = new WebView(ctx);
         web.setLayoutParams(new android.widget.FrameLayout.LayoutParams(-1, -1));
         web.setBackgroundColor(0xFF0E1116);
@@ -116,12 +124,17 @@ final class Tab {
             @Override
             public void onPageStarted(WebView view, String u, Bitmap icon) {
                 url = u;
+                pageLoading = true;
+                web.removeCallbacks(timeoutCheck);
+                if (prefs.rescue()) web.postDelayed(timeoutCheck, 12000);
                 host.onPageStarted(Tab.this);
             }
 
             @Override
             public void onPageFinished(WebView view, String u) {
                 url = u;
+                pageLoading = false;
+                web.removeCallbacks(timeoutCheck);
                 host.onPageFinished(Tab.this);
             }
 
@@ -153,6 +166,13 @@ final class Tab {
             @Override
             public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler,
                                                   String hostName, String realm) {
+                // 代理认证：主机与配置的代理一致时，用保存的账号密码
+                if (prefs.proxyEnabled() && hostName != null
+                        && hostName.equalsIgnoreCase(prefs.proxyHost())
+                        && prefs.proxyUser() != null && !prefs.proxyUser().isEmpty()) {
+                    handler.proceed(prefs.proxyUser(), prefs.proxyPass());
+                    return;
+                }
                 handler.cancel();
             }
 
@@ -237,6 +257,8 @@ final class Tab {
                 return true;
             }
         });
+
+        applyLite(prefs.liteMode());
     }
 
     /** 内置页面（隐私自检）：同样套用安全模式注入，便于对比。 */
@@ -329,14 +351,29 @@ final class Tab {
     void load(String u) {
         if (u == null || u.isEmpty()) return;
         internalPage = false;
+        rescueTried = false;
         applySafeScript(u);
         if (u.startsWith("about:")) {
-            web.loadDataWithBaseURL("about:blank", blankPage(), "text/html", "UTF-8", null);
+            // 先定 url 再加载：loadData 的回调顺序不可靠，避免地址栏拿到上一页的地址
             url = "about:blank";
+            web.loadDataWithBaseURL("about:blank", blankPage(), "text/html", "UTF-8", null);
+            host.onPageStarted(this);
+            web.post(() -> host.onPageFinished(this));
             return;
         }
-        web.loadUrl(u);
         url = u;
+        web.loadUrl(u);
+    }
+
+    /** 省流：不加载图片。 */
+    void applyLite(boolean on) {
+        lite = on;
+        try {
+            WebSettings s = web.getSettings();
+            s.setBlockNetworkImage(on);
+            s.setLoadsImagesAutomatically(!on);
+        } catch (Exception ignored) {
+        }
     }
 
     boolean canGoBack() { return web.canGoBack(); }

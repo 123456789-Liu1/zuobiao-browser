@@ -117,6 +117,20 @@ public class SettingsActivity extends AppCompatActivity {
         valueRow("下载管理", "含 m3u8 分片下载", () ->
                 startActivity(new Intent(this, DownloadsActivity.class)));
 
+        section("网络");
+        switchRow("加载超时自动救援", prefs.rescue(), (btn, v) -> prefs.rescue(v));
+        switchRow("省流模式（不加载图片）", prefs.liteMode(), (btn, v) -> prefs.liteMode(v));
+        valueRow("网络代理", ProxyManager.summary(), this::configProxy);
+        if (prefs.proxyEnabled()) {
+            valueRow("关闭代理", "点此停用，改为直连", () -> {
+                prefs.proxyEnabled(false);
+                ProxyManager.apply(this, () -> {
+                    Ui.toast(this, "已关闭代理");
+                    build();
+                });
+            });
+        }
+
         section("数据与备份");
         String wd = prefs.webdavUrl();
         valueRow("WebDAV 备份地址", wd.isEmpty() ? "未配置" : wd, this::configWebdav);
@@ -136,7 +150,14 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         section("关于");
-        valueRow("版本", "1.0.0", () -> { });
+        String verName = "1.0.0";
+        try {
+            android.content.pm.PackageInfo pi = getPackageManager()
+                    .getPackageInfo(getPackageName(), 0);
+            if (pi != null && pi.versionName != null) verName = pi.versionName;
+        } catch (Exception ignored) {
+        }
+        valueRow("版本", verName + " · WebView 内核", () -> { });
         valueRow("关于坐标浏览器", "WebView 内核 · 本地优先", () ->
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                         .setTitle("坐标浏览器")
@@ -327,6 +348,63 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void enterCinemaDemo() {
         Ui.toast(this, "回到网页后，从菜单点「影院」即可接管当前页面的视频");
+    }
+
+    private void configProxy() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = Ui.dp(this, 16);
+        box.setPadding(pad, 0, pad, 0);
+        EditText type = Ui.input(this, "类型：http 或 socks", prefs.proxyType());
+        EditText host = Ui.input(this, "主机，如 127.0.0.1", prefs.proxyHost());
+        EditText port = Ui.input(this, "端口，如 7890",
+                prefs.proxyPort() > 0 ? String.valueOf(prefs.proxyPort()) : "");
+        port.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        EditText user = Ui.input(this, "用户名（可留空）", prefs.proxyUser());
+        EditText pass = Ui.input(this, "密码（可留空）", prefs.proxyPass());
+        pass.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        EditText bypass = Ui.input(this, "跳过代理（逗号分隔，可留空）", prefs.proxyBypass());
+        box.addView(type);
+        box.addView(host);
+        box.addView(port);
+        box.addView(user);
+        box.addView(pass);
+        box.addView(bypass);
+
+        final AlertDialog d = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("网络代理")
+                .setMessage("只作用于本应用的网页请求，不改系统网络。SOCKS 需要较新的 WebView；"
+                        + "留空用户名密码即为免认证代理。")
+                .setView(box)
+                .setPositiveButton("保存并启用", null)
+                .setNegativeButton("取消", null)
+                .create();
+        d.show();
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String t = type.getText().toString().trim().toLowerCase(Locale.ROOT);
+            if (!t.equals("socks")) t = "http";
+            String h = host.getText().toString().trim();
+            int num = 0;
+            try {
+                num = Integer.parseInt(port.getText().toString().trim());
+            } catch (Exception ignored) {
+            }
+            if (h.isEmpty() || num <= 0) {
+                Ui.toast(this, "主机和端口不能为空");
+                return;
+            }
+            prefs.proxy(t, h, num, user.getText().toString().trim(),
+                    pass.getText().toString(), bypass.getText().toString().trim());
+            prefs.proxyEnabled(true);
+            d.dismiss();
+            ProxyManager.apply(this, () -> {
+                Ui.toast(this, ProxyManager.supported()
+                        ? "代理已启用，刷新页面生效"
+                        : "当前 WebView 不支持代理");
+                build();
+            });
+        });
     }
 
     private void showSafeExceptions() {

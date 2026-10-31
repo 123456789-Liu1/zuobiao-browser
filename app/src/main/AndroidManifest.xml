@@ -91,6 +91,12 @@
             android:theme="@style/AppTheme" />
 
         <activity
+            android:name=".SourceActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
+
+        <activity
             android:name=".RulesActivity"
             android:exported="false"
             android:theme="@style/AppTheme" />

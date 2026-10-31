@@ -10,7 +10,7 @@
 - 内核：系统 WebView（不自带 Chromium）
 - 形态：纯工具型，无信息流、无账号、无广告、无后台上报
 - 技术栈：Java 17 · minSdk 24 · targetSdk 34 · AndroidX + Material 3 · Media3(ExoPlayer)
-- 版本：**1.3.0**（`ZuobiaoBrowser-1.3.0.apk`，release 已签名，2.6 MB）
+- 版本：**1.4.0**（`ZuobiaoBrowser-1.4.0.apk`，release 已签名，2.6 MB）
 
 | 浏览 | 资源嗅探 | 影院模式 |
 |---|---|---|
@@ -318,7 +318,32 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 
 ---
 
-## 九、下一步可以做什么
+## 九、v1.4：状态修复 + 网络能力
+
+### 修复
+| 问题 | 原因 | 处理 |
+|---|---|---|
+| 新建标签后地址栏仍是上一页 | `onTabsChanged()` 没刷新地址栏；`loadDataWithBaseURL()` 对 data 页面不保证回调 | 切标签时主动刷新；空白页先设 `url` 再加载，并手动回调一次 |
+| 空白页没有任何提示 | `urlText` 用的是 `text` 不是 `hint` | 改成 hint，空值时显示「搜索或输入网址」 |
+| 播放器音量手势只弹提示 | 没接 `AudioManager` | 真正调 `STREAM_MUSIC`，HUD 显示百分比 |
+| 授权存储后下载不自动开始 | 没有 `onRequestPermissionsResult` | 记录待下载参数，授权后自动重试 |
+
+### 新增
+- **查看源代码**（菜单 → 源码）
+  - 渲染后 DOM（推荐，含 JS 生成内容）/ 重新请求原始响应，可互相切换
+  - 等宽显示、页内查找（高亮 + 上一个/下一个）、复制、分享、保存到 `下载/Zuobiao`
+  - 原始响应会自动识别 `Content-Type` 与 `<meta charset>`（GBK 站点不乱码），单页上限 1 MB
+- **加载救援**（默认开）：12 秒未完成 → 自动重试一次；没配代理时切到省流模式（不加载图片），页面出来后恢复原设置
+- **省流模式**：菜单一键切换，也可在设置里常开
+- **网络代理**（设置 → 网络）：HTTP / SOCKS5 + 可选认证 + 跳过列表，走 `ProxyController`，**只影响本应用的网页请求**，不改系统网络、不需要 VPN 授权
+
+### 真加速调研
+见 [`docs/open-source-proxies.md`](docs/open-source-proxies.md)：Mihomo / Clash（GPL-3.0）、sing-box（GPL-3.0-or-later）、Xray-core（MPL-2.0）、v2ray-core（MIT）、Hysteria（MIT）、gost（MIT）、WireGuard（MIT）等。
+结论：**浏览器只当客户端**（连本地 127.0.0.1:7890），不内置内核、不分发节点；内置内核的许可证与体积代价见文档。
+
+---
+
+## 十、下一步可以做什么
 
 1. **HLS 下载**：解析 m3u8 → 并发拉分片 → AES-128 解密 → 合并 MP4（工具链已经清楚，工作量在容错）。
 2. **规则订阅**：解析 Easylist 子集（domain + 元素选择器），支持订阅与自动更新。
@@ -329,9 +354,16 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 
 ---
 
-## 构建状态（2026-10-25 · 1.3.0）
+## 构建状态（2026-10-31 · 1.4.0）
 
-- `assembleRelease` 通过：2.6 MB，已签名（versionCode 4 / versionName 1.3.0）。
-- Android Lint：**0 error**（修掉 `windowLayoutInDisplayCutoutMode` 的 API 27 崩溃隐患）。
-- 本轮模拟器异常（qemu 卡死、adb 无法连接），**安全模式未做真机点击验证**；已用 Node `vm` 对注入脚本做 21 项断言，覆盖伪装值、API 拒绝与噪声路径。
-- 下一轮起模拟器后可补：安全模式下打开百度、看「安」徽标、跑自检页对比。
+- `assembleRelease` 通过，2.6 MB，已签名（versionCode 5 / versionName 1.4.0）；Android Lint **0 error**。
+- **实机验证（Android 17 模拟器，release 包）**：
+  - 新建标签：地址栏显示「搜索或输入网址」占位，不再残留上一页地址 ✓
+  - 查看源代码：百度结果页渲染后 DOM 正常显示、等宽排版、页内查找 1/19 高亮 ✓
+  - 加载救援 / 省流 / 代理：设置项与状态正常，代理配置弹窗 6 个字段 + 保存/取消渲染正确 ✓
+  - 版本号改为读取 `PackageInfo`，设置页显示 1.4.0 ✓
+- 已知取舍：源码页对超长 DOM 只渲染前 12 万字符（复制/保存仍是全文），避免主线程卡死。
+
+### 本轮踩到的环境坑（供复现参考）
+1. 本机 `GRADLE_USER_HOME` 指向 `D:\Xuan_yili\TRAE_C_Drive_Migration\Gradle`，该目录下 `.lock` 文件被拒绝访问 → 换 `-g C:/Users/.../ghome2` 并加 `GRADLE_OPTS="-Dorg.gradle.native=false"`。
+2. 旧的 `app/build` 目录里文件被拒写 → 移走目录后重新生成。

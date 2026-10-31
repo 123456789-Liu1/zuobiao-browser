@@ -23,3 +23,11 @@ keystore.properties
 
 # 日志
 *.log
+
+# 临时迁移的旧构建目录
+app/build_old_*/
+build_old_*/
+
+# 临时迁移的旧构建目录
+app/build_old_*/
+build_old_*/

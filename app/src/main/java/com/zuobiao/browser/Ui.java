@@ -144,6 +144,18 @@ final class Ui {
         if (b != null) b.setOnClickListener(v -> a.finish());
     }
 
+    static void showKeyboard(Context c, View v) {
+        android.view.inputmethod.InputMethodManager im =
+                (android.view.inputmethod.InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (im != null) im.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    static void hideKeyboard(Context c, View v) {
+        android.view.inputmethod.InputMethodManager im =
+                (android.view.inputmethod.InputMethodManager) c.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (im != null) im.hideSoftInputFromWindow(v.getWindowToken(), 0);
+    }
+
     /** edge-to-edge：内容区统一补系统栏 + 输入法内边距。 */
     static void applyInsets(final Activity a) {
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(a.getWindow(), false);

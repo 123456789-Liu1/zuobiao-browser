@@ -54,6 +54,9 @@ public class PlayerActivity extends Activity {
     private long downPos;
     private float downBrightness;
     private boolean horizontalSeek;
+    private android.media.AudioManager audio;
+    private int maxVol = 15;
+    private int startVol;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -129,6 +132,10 @@ public class PlayerActivity extends Activity {
         setContentView(root);
         Ui.applyInsets(this);
         hideBars();
+        audio = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audio != null) {
+            maxVol = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        }
         back.setOnClickListener(v -> finish());
 
         String ua = getIntent().getStringExtra("ua");
@@ -200,6 +207,7 @@ public class PlayerActivity extends Activity {
                         downPos = player.getCurrentPosition();
                         downBrightness = getWindow().getAttributes().screenBrightness;
                         if (downBrightness < 0) downBrightness = 0.5f;
+                        if (audio != null) startVol = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
                         horizontalSeek = false;
                         return false;
                     case MotionEvent.ACTION_MOVE:
@@ -219,7 +227,14 @@ public class PlayerActivity extends Activity {
                                 getWindow().setAttributes(lp);
                                 showHud("亮度 " + Math.round(nb * 100) + "%");
                             } else {
-                                showHud(dy < 0 ? "音量 +" : "音量 -");
+                                if (audio != null) {
+                                    int delta = (int) (-dy / view.getHeight() * maxVol);
+                                    int nv = Math.max(0, Math.min(maxVol, startVol + delta));
+                                    audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, nv, 0);
+                                    showHud("音量 " + (maxVol == 0 ? 0 : nv * 100 / maxVol) + "%");
+                                } else {
+                                    showHud(dy < 0 ? "音量 +" : "音量 -");
+                                }
                             }
                         }
                         return true;

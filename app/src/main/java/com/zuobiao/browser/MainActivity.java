@@ -72,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
     private boolean editingUrl;
     private boolean findVisible;
     private long lastBackTime;
+    private String[] pendingDownload;
 
     // ---------------- 生命周期 ----------------
 
@@ -379,6 +380,8 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
 
     @Override
     public void onPageFinished(Tab t) {
+        // 救援重试用过省流模式的话，页面出来后恢复用户原本的设置
+        if (t.rescueTried && !prefs.liteMode()) t.applyLite(false);
         if (t == tabs.current()) {
             progress.setVisibility(View.GONE);
             btnStop.setVisibility(View.GONE);
@@ -434,8 +437,9 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         if (Build.VERSION.SDK_INT <= 28
                 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
+            pendingDownload = new String[]{url, ua, cd, mime};
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_WRITE);
-            Ui.toast(this, "请先授予存储权限后重新下载");
+            Ui.toast(this, "授予存储权限后会自动开始下载");
             return;
         }
         try {
@@ -498,6 +502,26 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         updateNav();
         updateSniffFab();
         updateSafeBadge();
+        // 切换标签 / 新建空白标签时，地址栏必须跟着换，否则会停留在上一个标签的地址
+        if (!editingUrl) {
+            if (t == null) urlText.setText("");
+            else if (t.internalPage) urlText.setText("隐私自检");
+            else setUrlDisplay(t.url);
+        }
+    }
+
+    @Override
+    public void onLoadTimeout(Tab t) {
+        if (t != tabs.current() || t.rescueTried || !prefs.rescue()) return;
+        t.rescueTried = true;
+        if (prefs.proxyEnabled() && !prefs.proxyRule().isEmpty()) {
+            Ui.toast(this, "加载较慢，正在通过代理重试");
+            t.reload();
+            return;
+        }
+        Ui.toast(this, "加载较慢，已切换到省流模式重试");
+        t.applyLite(true);
+        t.reload();
     }
 
     private void updateSafeBadge() {
@@ -611,6 +635,78 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
 
     // ---------------- 菜单 ----------------
 
+    private void showSourceMenu() {
+        Tab t = tabs.current();
+        if (t == null || t.url == null || t.url.isEmpty() || t.url.startsWith("about:")) {
+            Ui.toast(this, "当前页面没有可查看的源码");
+            return;
+        }
+        String[] items = {"渲染后的源码（推荐，含 JS 生成内容）", "重新请求原始响应"};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("查看源代码")
+                .setItems(items, (d, w) -> openSource(w == 0))
+                .show();
+    }
+
+    /** dom=true 取当前 DOM；false 重新发一次请求拿服务端原文。 */
+    void openSource(boolean dom) {
+        final Tab t = tabs.current();
+        if (t == null) return;
+        if (!dom) {
+            startActivity(new Intent(this, SourceActivity.class)
+                    .putExtra("url", t.url)
+                    .putExtra("mode", "raw"));
+            return;
+        }
+        t.web.evaluateJavascript(
+                "(function(){try{return document.documentElement.outerHTML}catch(e){return ''}})();",
+                v -> {
+                    String html = decodeJsString(v);
+                    if (html.isEmpty()) {
+                        Ui.toast(this, "读取失败，试试原始响应");
+                        return;
+                    }
+                    try {
+                        java.io.File f = new java.io.File(getCacheDir(), "source_dom.html");
+                        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                            out.write(html.getBytes("UTF-8"));
+                        }
+                        startActivity(new Intent(this, SourceActivity.class)
+                                .putExtra("url", t.url)
+                                .putExtra("mode", "dom")
+                                .putExtra("file", f.getAbsolutePath()));
+                    } catch (Exception e) {
+                        Ui.toast(this, "写入临时文件失败");
+                    }
+                });
+    }
+
+    /** evaluateJavascript 返回的是 JSON 字符串字面量，这里还原成原文。 */
+    static String decodeJsString(String v) {
+        if (v == null) return "";
+        if (v.length() >= 2 && v.startsWith("\"") && v.endsWith("\"")) {
+            try {
+                Object o = new org.json.JSONTokener(v).nextValue();
+                return o == null ? "" : o.toString();
+            } catch (Exception ignored) {
+            }
+        }
+        return v;
+    }
+
+    private void toggleLite() {
+        boolean on = !prefs.liteMode();
+        prefs.liteMode(on);
+        Tab t = tabs.current();
+        if (t != null) t.applyLite(on);
+        Ui.toast(this, on ? "省流模式：不加载图片" : "省流模式已关闭");
+    }
+
+    private void openProxySettings() {
+        startActivityForResult(new Intent(this, SettingsActivity.class), REQ_SETTINGS);
+        Ui.toast(this, "在「网络代理」里填写地址与端口");
+    }
+
     private void showMenu() {
         final Tab t = tabs.current();
         final boolean marked = t != null && db.isBookmarked(t.url);
@@ -641,6 +737,9 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         addCell(grid, "⟳", "刷新", () -> { if (t != null) t.reload(); });
         addCell(grid, "◎", "资源", () -> SnifferSheet.show(this, tabs.current()));
         addCell(grid, "▶", "影院", this::enterCinema);
+        addCell(grid, "</>", "源码", this::showSourceMenu);
+        addCell(grid, "◫", "省流", this::toggleLite);
+        addCell(grid, "⇄", "代理", this::openProxySettings);
 
         com.google.android.material.bottomsheet.BottomSheetDialog sheet =
                 new com.google.android.material.bottomsheet.BottomSheetDialog(this);
@@ -877,8 +976,23 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
     }
 
     @Override
-    protected void onActivityResult(int req, int res, Intent data) {
-        super.onActivityResult(req, res, data);
+    public void onRequestPermissionsResult(int req, String[] perms, int[] grant) {
+        super.onRequestPermissionsResult(req, perms, grant);
+        if (req == REQ_WRITE) {
+            if (grant.length > 0 && grant[0] == PackageManager.PERMISSION_GRANTED
+                    && pendingDownload != null) {
+                String[] p = pendingDownload;
+                pendingDownload = null;
+                onDownload(tabs.current(), p[0], p[1], p[2], p[3], 0);
+            } else {
+                pendingDownload = null;
+                Ui.toast(this, "没有存储权限，无法保存文件");
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {        super.onActivityResult(req, res, data);
         if (req == REQ_LIBRARY && res == RESULT_OK && data != null) {
             String url = data.getStringExtra("url");
             if (url != null) openUrl(url);

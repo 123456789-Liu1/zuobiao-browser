@@ -53,8 +53,9 @@
                     android:singleLine="true"
                     android:ellipsize="middle"
                     android:textColor="@color/text"
+                    android:textColorHint="@color/text_dim"
                     android:textSize="13.5sp"
-                    android:text="@string/search_hint" />
+                    android:hint="@string/search_hint" />
 
                 <TextView
                     android:id="@+id/urlCaret"

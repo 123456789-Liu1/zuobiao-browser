@@ -23,6 +23,11 @@ public class App extends Application {
         new Thread(() -> {
             try { adblock.ensureLoaded(); } catch (Throwable ignored) {}
         }, "zb-rules").start();
+        // 启动时套用代理设置（不影响系统网络，只作用于本应用的 WebView）
+        try {
+            ProxyManager.apply(this, null);
+        } catch (Throwable ignored) {
+        }
     }
 
     static App get() { return inst; }
