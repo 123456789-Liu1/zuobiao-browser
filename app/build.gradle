@@ -16,8 +16,8 @@ android {
         applicationId "com.zuobiao.browser"
         minSdk 24
         targetSdk 34
-        versionCode 5
-        versionName "1.4.0"
+        versionCode 6
+        versionName "1.5.0-core-poc"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -38,6 +38,7 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+            ndk { abiFilters 'arm64-v8a' }
         }
         debug {
             applicationIdSuffix ".debug"
@@ -60,6 +61,8 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.webkit:webkit:1.11.0'
+    // 本地代理内核（gomobile 生成，可选打包；缺失时 UI 显示「未打包」）
+    implementation files('libs/xraymobile.jar')
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.media3:media3-exoplayer:1.4.1'
     implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'

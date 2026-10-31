@@ -343,7 +343,58 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 
 ---
 
-## 十、下一步可以做什么
+## 十、本地代理内核（实验，1.5.0-core-poc）
+
+把 **Xray-core** 用 Go 编成 `.so`（gomobile），作为应用内的本地 SOCKS 代理运行；浏览器通过 `ProxyController` 把网页请求指向它。
+
+### 怎么用
+1. 设置 → 本地代理核心（实验）→ **一键启用**
+2. 内核监听 `127.0.0.1:10808`，浏览器代理自动设为 `socks://127.0.0.1:10808`
+3. 想换节点：设置 → 内核配置，粘贴自己的 Xray JSON
+
+### 默认配置只跑通链路
+默认 outbound 是 `freedom`（直连），作用是把「WebView → 本地 SOCKS → 出口」整条链路验证通，**不会提速**。真正加速需要把 outbounds 换成自己的节点：
+
+```json
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    { "port": 10808, "listen": "127.0.0.1", "protocol": "socks",
+      "settings": { "udp": false } }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          { "address": "服务器IP", "port": 443,
+            "users": [{ "id": "UUID", "encryption": "none", "flow": "xtls-rprx-vision" }] }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp", "security": "reality",
+        "realitySettings": { "serverName": "伪装域名", "publicKey": "公钥",
+                             "shortId": "短ID", "fingerprint": "chrome" }
+      }
+    }
+  ]
+}
+```
+
+### 代价与边界
+| 项 | 说明 |
+|---|---|
+| 体积 | 每个 ABI 的 `.so` 约 32–34 MB（strip 后）；实验包约 45 MB |
+| 生效范围 | 只作用于本应用的 WebView，**不是**全局 VPN；系统其他 App 不受影响 |
+| 需要什么 | 一个可用的服务端节点；没有节点只能跑 freedom 直连 |
+| 许可 | Xray-core 为 **MPL-2.0**（未修改其源码）；gomobile 为 BSD-3-Clause |
+| 风险 | 实验特性：进程被杀内核即停止；不做订阅解析、测速、分流规则 |
+
+> 与 `docs/open-source-proxies.md` 的结论一致：不做「内置节点/订阅」，只提供内核与配置入口。
+
+---
+
+## 十一、下一步可以做什么
 
 1. **HLS 下载**：解析 m3u8 → 并发拉分片 → AES-128 解密 → 合并 MP4（工具链已经清楚，工作量在容错）。
 2. **规则订阅**：解析 Easylist 子集（domain + 元素选择器），支持订阅与自动更新。
@@ -367,3 +418,14 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 ### 本轮踩到的环境坑（供复现参考）
 1. 本机 `GRADLE_USER_HOME` 指向 `D:\Xuan_yili\TRAE_C_Drive_Migration\Gradle`，该目录下 `.lock` 文件被拒绝访问 → 换 `-g C:/Users/.../ghome2` 并加 `GRADLE_OPTS="-Dorg.gradle.native=false"`。
 2. 旧的 `app/build` 目录里文件被拒写 → 移走目录后重新生成。
+
+## 构建状态补充（2026-10-31 · 1.5.0-core-poc）
+
+- **本地代理内核 POC 已跑通**：Xray-core 26.3.27 经 gomobile 编成 `libgojni.so`（arm64 32MB / x86_64 34MB，strip 后），
+  应用内可直接启动，浏览器经 `socks://127.0.0.1:10808` 出网。
+- 实测（Android 17 模拟器）：
+  - Debug 包：内核 **已就绪 · 26.3.27** → 一键启用 → 内核 **运行中**、代理 `socks://127.0.0.1:10808` → 百度结果页正常加载 ✓
+  - Release 包（R8）：`libgojni.so` 正常加载、`Xray 26.3.27 started`、代理生效、页面正常 ✓（已加 keep 规则）
+- 产物：`ZuobiaoBrowser-1.5.0-core-poc.apk`，34 MB，versionCode 6，仅 arm64-v8a，签名 OK。
+- 二进制不入库；复现步骤见 `tools/xraymobile/README.md`。
+- 注意：默认 outbound 是 `freedom`（直连），只验证链路、不提速；要真加速需在「内核配置」里换成自己的 VLESS/VMess 节点。

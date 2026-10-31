@@ -9,3 +9,8 @@
 # 保留行号，崩溃栈可读
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# gomobile 生成的代理内核（通过反射调用，必须保留）
+-keep class xraymobile.** { *; }
+-keep class go.** { *; }
+-keep class com.zuobiao.browser.ProxyCore { *; }

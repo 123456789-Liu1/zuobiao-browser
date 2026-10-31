@@ -31,3 +31,8 @@ build_old_*/
 # 临时迁移的旧构建目录
 app/build_old_*/
 build_old_*/
+
+# 本地代理内核二进制（可复现，见 tools/xraymobile/README.md）
+app/libs/xraymobile.jar
+app/src/main/jniLibs/
+tools/xraymobile/out-*/

@@ -131,6 +131,22 @@ public class SettingsActivity extends AppCompatActivity {
             });
         }
 
+        section("本地代理核心（实验）");
+        valueRow("内核状态", ProxyCore.available()
+                        ? (ProxyCore.running()
+                        ? "运行中 · " + ProxyCore.version()
+                        : "已就绪 · " + ProxyCore.version())
+                        : "未打包进本安装包",
+                () -> Ui.toast(this, ProxyCore.available()
+                        ? "SOCKS 监听 127.0.0.1:" + prefs.corePort()
+                        : "当前 APK 不含本地内核，需要带 xraymobile AAR 的构建"));
+        if (ProxyCore.available()) {
+            valueRow(ProxyCore.running() ? "停止内核" : "启动内核",
+                    "SOCKS · 127.0.0.1:" + prefs.corePort(), this::toggleCore);
+            valueRow("一键启用", "启动内核并让浏览器走本地代理", this::useCoreProxy);
+            valueRow("内核配置", "Xray JSON，可粘贴自己的节点", this::editCoreConfig);
+        }
+
         section("数据与备份");
         String wd = prefs.webdavUrl();
         valueRow("WebDAV 备份地址", wd.isEmpty() ? "未配置" : wd, this::configWebdav);
@@ -348,6 +364,78 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void enterCinemaDemo() {
         Ui.toast(this, "回到网页后，从菜单点「影院」即可接管当前页面的视频");
+    }
+
+    private void toggleCore() {
+        if (ProxyCore.running()) {
+            ProxyCore.stop();
+            Ui.toast(this, "内核已停止");
+            build();
+            return;
+        }
+        String err = ProxyCore.start(prefs.coreConfig());
+        Ui.toast(this, err.isEmpty() ? "内核已启动" : err);
+        build();
+    }
+
+    private void useCoreProxy() {
+        if (!ProxyCore.running()) {
+            String err = ProxyCore.start(prefs.coreConfig());
+            if (!err.isEmpty()) {
+                Ui.toast(this, err);
+                return;
+            }
+        }
+        prefs.proxy("socks", "127.0.0.1", prefs.corePort(), "", "", "");
+        prefs.proxyEnabled(true);
+        ProxyManager.apply(this, () -> {
+            Ui.toast(this, "已启用本地内核代理，刷新页面生效");
+            build();
+        });
+    }
+
+    private void editCoreConfig() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = Ui.dp(this, 14);
+        box.setPadding(pad, 0, pad, 0);
+
+        final EditText port = Ui.input(this, "端口", String.valueOf(prefs.corePort()));
+        port.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        final EditText cfg = new EditText(this);
+        cfg.setText(prefs.coreConfig());
+        cfg.setTextSize(12);
+        cfg.setTypeface(android.graphics.Typeface.MONOSPACE);
+        cfg.setTextColor(getColor(R.color.text));
+        cfg.setBackgroundColor(getColor(R.color.surface2));
+        cfg.setPadding(Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10), Ui.dp(this, 10));
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(cfg);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, Ui.dp(this, 260));
+        slp.topMargin = Ui.dp(this, 8);
+        box.addView(port);
+        box.addView(sv, slp);
+
+        final AlertDialog d = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("内核配置")
+                .setMessage("Xray JSON。默认是「SOCKS 入站 + freedom 直连」，"
+                        + "把 outbounds 换成自己的 VLESS/VMess 节点即可真正加速。")
+                .setView(box)
+                .setPositiveButton("保存", null)
+                .setNegativeButton("取消", null)
+                .create();
+        d.show();
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            prefs.coreConfig(cfg.getText().toString());
+            try {
+                prefs.corePort(Integer.parseInt(port.getText().toString().trim()));
+            } catch (Exception ignored) {
+            }
+            d.dismiss();
+            build();
+            Ui.toast(this, ProxyCore.running() ? "已保存，重启内核后生效" : "已保存");
+        });
     }
 
     private void configProxy() {

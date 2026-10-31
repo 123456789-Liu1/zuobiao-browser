@@ -153,6 +153,28 @@ final class Prefs {
         return proxyType() + "://" + host + ":" + proxyPort();
     }
 
+    // ---- 本地代理内核（Xray）----
+    static final String DEFAULT_CORE_CONFIG =
+            "{\n"
+                    + "  \"log\": {\"loglevel\": \"warning\"},\n"
+                    + "  \"inbounds\": [\n"
+                    + "    {\"port\": 10808, \"listen\": \"127.0.0.1\", \"protocol\": \"socks\",\n"
+                    + "     \"settings\": {\"udp\": false}}\n"
+                    + "  ],\n"
+                    + "  \"outbounds\": [{\"protocol\": \"freedom\"}]\n"
+                    + "}";
+
+    String coreConfig() {
+        String v = sp.getString("core_cfg", null);
+        return v == null || v.trim().isEmpty() ? DEFAULT_CORE_CONFIG : v;
+    }
+
+    void coreConfig(String v) { sp.edit().putString("core_cfg", v).apply(); }
+
+    int corePort() { return sp.getInt("core_port", 10808); }
+
+    void corePort(int p) { sp.edit().putInt("core_port", p).apply(); }
+
     // ---- 安全模式（严格） ----
     boolean safeMode() { return cSafe; }
 
