@@ -176,6 +176,12 @@ final class Prefs {
     void corePort(int p) { sp.edit().putInt("core_port", p).apply(); }
 
     // ---- 安全模式（严格） ----
+    // ---- 外观 ----
+    /** 顶部地址栏是否常驻（默认隐藏，菜单「地址」可临时唤出）。 */
+    boolean showUrlBar() { return sp.getBoolean("show_urlbar", false); }
+
+    void showUrlBar(boolean v) { sp.edit().putBoolean("show_urlbar", v).apply(); }
+
     boolean safeMode() { return cSafe; }
 
     void safeMode(boolean v) {

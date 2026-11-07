@@ -28,11 +28,18 @@ keystore.properties
 app/build_old_*/
 build_old_*/
 
-# 临时迁移的旧构建目录
-app/build_old_*/
-build_old_*/
+# NDK / 外部原生构建
+.cxx/
+.externalNativeBuild/
+captures/
+*.hprof
 
 # 本地代理内核二进制（可复现，见 tools/xraymobile/README.md）
 app/libs/xraymobile.jar
 app/src/main/jniLibs/
 tools/xraymobile/out-*/
+
+# Gradle wrapper 必须入库（保证构建可复现）
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat

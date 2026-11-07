@@ -16,8 +16,8 @@ android {
         applicationId "com.zuobiao.browser"
         minSdk 24
         targetSdk 34
-        versionCode 6
-        versionName "1.5.0-core-poc"
+        versionCode 7
+        versionName "1.4.1"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -62,7 +62,9 @@ dependencies {
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.webkit:webkit:1.11.0'
     // 本地代理内核（gomobile 生成，可选打包；缺失时 UI 显示「未打包」）
-    implementation files('libs/xraymobile.jar')
+    if (file('libs/xraymobile.jar').exists()) {
+        implementation files('libs/xraymobile.jar')
+    }
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.media3:media3-exoplayer:1.4.1'
     implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'

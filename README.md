@@ -182,15 +182,21 @@ ZuobiaoBrowser/
 ## 四、构建
 
 ### 环境
-- JDK 17+（本机 JDK 21）
-- Android SDK：`compileSdk 34`、build-tools 36.1.0
-- Gradle 8.7（AGP 8.5.2）
+- JDK 17+（本机 JDK 21，已设 `JAVA_HOME`）
+- Android SDK：`compileSdk 34`、build-tools 36.1.0（`ANDROID_HOME` = `D:\Xuan_yili\AndroidSdk\Sdk`）
+- Gradle 8.7（**wrapper 已内置**，AGP 8.5.2 要求 ≥ 8.7）
 
 ### 命令
+项目自带 Gradle Wrapper，不需要系统安装 gradle：
+
 ```bash
-gradle :app:assembleDebug      # 调试包
-gradle :app:assembleRelease    # 正式包（R8 + 资源压缩 + 正式签名）
+./gradlew :app:assembleDebug      # 调试包
+./gradlew :app:assembleRelease    # 正式包（R8 + 资源压缩 + 正式签名）
 ```
+
+Windows CMD / PowerShell 用 `.\gradlew.bat`，Git Bash 用 `./gradlew`。
+
+> Wrapper 的 `distributionUrl` 指向腾讯云镜像，国内网络无需额外配置即可拉取。
 
 ### 在 VS Code 里
 标准 Gradle 工程，可直接用已安装的插件：
@@ -394,7 +400,51 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 
 ---
 
-## 十一、下一步可以做什么
+## 十一、v1.4.1：滚动修复 + 地址栏开关 + 检查更新
+
+### 1. 上滑误触发刷新（Bug）
+**根因**：`SwipeRefreshLayout` 判断「能否下拉」时只看**直接子 View** 的滚动位置，而它的直接子 View 是 `FrameLayout(webContainer)`——自己从不滚动，于是永远判定为「在顶部」。页面滚到中间往上一滑，就被当成下拉刷新，直接 reload。
+
+**修复**：给 SwipeRefreshLayout 设置 `setOnChildScrollUpCallback`，改看当前 WebView 的真实滚动位置：
+
+```java
+refresh.setOnChildScrollUpCallback((parent, child) -> {
+    Tab t = tabs.current();
+    return t != null && t.web.canScrollVertically(-1);
+});
+```
+
+### 2. 地址栏默认隐藏
+- 默认不显示顶部地址栏，网页满屏
+- 菜单第一格新增「**地址**」（4×5 正好排满 20 格）→ 临时展开并自动弹键盘
+- 提交/取消后自动收起
+- 设置 → 外观 → 「显示地址栏（顶部）」可恢复常驻
+- 地址栏隐藏时，「安」徽标一并隐藏；安全模式的开关/例外/自检仍在设置里
+
+### 3. 检查更新（应用内下载）
+- 设置 → 关于 → 检查更新
+- 主路径：GitHub API `releases/latest`，比对版本号（忽略 `v` 前缀与 `-core-poc` 后缀）
+- **兜底**：API 触发限流（403，60 次/小时/IP）时，改用 `HEAD /releases/latest` 的 302 跳转解析 tag，不占 API 额度
+- 发现新版本 → 对话框（版本、大小、更新说明）→「下载并安装」用 `DownloadManager` 下载 APK，完成后调起系统安装器；也可「打开发布页」
+- 失败提示如实区分：`网络不可用或超时` / `GitHub 请求过于频繁`，不弹错误框
+
+### 验证记录（Android 17 模拟器，debug 包）
+| 项 | 结果 |
+|---|---|
+| 页面中部上滑 | 正常回滚，不再触发刷新 ✓ |
+| 顶部下拉 | 刷新指示器出现、页面重载 ✓ |
+| 默认隐藏地址栏 | 网页满屏、无顶部条 ✓ |
+| 菜单「地址」 | 展开输入框 + 自动弹键盘 ✓ |
+| 提交地址 | 导航生效、地址栏自动收起 ✓ |
+| 检查更新（限流下） | 兜底检测成功，弹窗显示 v1.4.0 ✓ |
+| 点击下载 | `DownloadManager` 成功入队（日志 id=8、URL 正确）✓ |
+| APK 落盘与安装器 | **本模拟器未观察到**：下载任务没有被系统调度（`/sdcard/Download` 为空），需真机再确认一次 |
+
+> 已知：GitHub 未登录 API 限流很容易触发（共享出口 IP），所以加了不依赖 API 的兜底；兜底模式下大小显示为「未知」。
+
+---
+
+## 十二、下一步可以做什么
 
 1. **HLS 下载**：解析 m3u8 → 并发拉分片 → AES-128 解密 → 合并 MP4（工具链已经清楚，工作量在容错）。
 2. **规则订阅**：解析 Easylist 子集（domain + 元素选择器），支持订阅与自动更新。
@@ -429,3 +479,10 @@ PASS battery.level=1 / permissions=denied / devices=0 / quota=100MB / clipboard 
 - 产物：`ZuobiaoBrowser-1.5.0-core-poc.apk`，34 MB，versionCode 6，仅 arm64-v8a，签名 OK。
 - 二进制不入库；复现步骤见 `tools/xraymobile/README.md`。
 - 注意：默认 outbound 是 `freedom`（直连），只验证链路、不提速；要真加速需在「内核配置」里换成自己的 VLESS/VMess 节点。
+
+## 构建状态（2026-11-07 · 1.4.1）
+
+- `assembleRelease` 通过：**2.6 MB**，versionCode 7 / versionName 1.4.1，签名 OK；Android Lint 0 error。
+- 本版**不含**本地代理内核（保持轻量）；内核仍在 `v1.5.0-core-poc` 预发布里。
+- 实机回归见「十一、v1.4.1」的验证表；唯一未闭环项是「下载 APK 后调起安装器」——模拟器上 DownloadManager 任务未被调度，需真机确认。
+- 构建环境备忘：本机通过默认 shell 启动 Gradle 守护进程时打不开 `native-platform.dll.lock`（普通 Java 进程正常），换成系统自带终端工具启动即可；旧的 `app/build` 目录若被拒写，移走后重建。

@@ -114,6 +114,13 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
             refresh.setRefreshing(true);
             refresh.postDelayed(() -> refresh.setRefreshing(false), 6000);
         });
+        // SwipeRefreshLayout 只检查「直接子 View」能不能上滚，而直接子 View 是
+        // FrameLayout（自己从不滚动），于是永远被判定为“在顶部”——页面滚到中间
+        // 往上一滑就会误触发刷新。这里改成看当前 WebView 的真实滚动位置。
+        refresh.setOnChildScrollUpCallback((parent, child) -> {
+            Tab t = tabs == null ? null : tabs.current();
+            return t != null && t.web.canScrollVertically(-1);
+        });
         findBar = findViewById(R.id.findBar);
         findInput = findViewById(R.id.findInput);
         findCount = findViewById(R.id.findCount);
@@ -215,6 +222,7 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         applyPrefsToUi();
         updateTabsButton();
         updateSafeBadge();
+        applyUrlBarMode();
     }
 
     @Override
@@ -317,16 +325,50 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
 
     // ---------------- 地址栏：只读条 ⇄ 输入态 ----------------
 
+    /** 按设置决定地址栏常驻还是隐藏；编辑中不动。 */
+    private void applyUrlBarMode() {
+        if (topBar == null || editingUrl) return;
+        if (prefs.showUrlBar()) {
+            topBar.setVisibility(View.VISIBLE);
+            ViewGroup.LayoutParams lp = topBar.getLayoutParams();
+            lp.height = Ui.dp(this, 52);
+            topBar.setLayoutParams(lp);
+            urlCollapsed = false;
+            Tab t = tabs == null ? null : tabs.current();
+            setUrlDisplay(t == null ? "" : t.url);
+        } else {
+            topBar.setVisibility(View.GONE);
+        }
+    }
+
     private void enterEditMode() {
         Tab t = tabs == null ? null : tabs.current();
         editingUrl = true;
-        animateTopBar(false);
+        // 地址栏平时可能是隐藏的，编辑时临时拉出来
+        if (topBar.getVisibility() != View.VISIBLE) {
+            topBar.setVisibility(View.VISIBLE);
+            ViewGroup.LayoutParams lp = topBar.getLayoutParams();
+            lp.height = Ui.dp(this, 52);
+            topBar.setLayoutParams(lp);
+            urlCollapsed = false;
+        } else {
+            animateTopBar(false);
+        }
         urlView.setVisibility(View.GONE);
         urlBar.setVisibility(View.VISIBLE);
         urlBar.setText(t == null || t.url.startsWith("about:") ? "" : t.url);
-        urlBar.requestFocus();
-        urlBar.setSelection(urlBar.getText().length());
-        showKeyboard(urlBar);
+        // 地址栏可能是刚从 GONE 恢复的：等布局完成再抢焦点；
+        // 程序化 showSoftInput 常被系统忽略，这里用 SHOW_FORCED 兜底。
+        urlBar.postDelayed(() -> {
+            urlBar.requestFocus();
+            urlBar.setSelection(urlBar.getText().length());
+            InputMethodManager im =
+                    (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            if (im != null) {
+                im.showSoftInput(urlBar, InputMethodManager.SHOW_IMPLICIT);
+                im.showSoftInput(urlBar, InputMethodManager.SHOW_FORCED);
+            }
+        }, 200);
     }
 
     private void exitEditMode() {
@@ -337,11 +379,17 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         urlView.setVisibility(View.VISIBLE);
         Tab t = tabs == null ? null : tabs.current();
         setUrlDisplay(t == null ? "" : t.url);
+        // 延迟收起，等键盘动画结束，避免闪一下
+        topBar.postDelayed(() -> {
+            if (!prefs.showUrlBar() && !editingUrl) topBar.setVisibility(View.GONE);
+        }, 160);
     }
 
     /** 滚动时收起 / 展开顶部地址条（只动高度，不遮挡页面）。 */
     private void animateTopBar(final boolean collapse) {
         if (topBar == null || urlCollapsed == collapse) return;
+        // 地址栏被用户设为隐藏时，不参与滚动动画（避免 GONE 与高度动画打架）
+        if (!prefs.showUrlBar() && !editingUrl) return;
         urlCollapsed = collapse;
         final int full = Ui.dp(this, 52);
         final int from = topBar.getHeight() > 0 ? topBar.getHeight() : (collapse ? full : 0);
@@ -718,6 +766,7 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
         grid.setColumnCount(4);
         body.addView(grid, new LinearLayout.LayoutParams(-1, -2));
 
+        addCell(grid, "⌨", "地址", this::enterEditMode);
         addCell(grid, "＋", "新标签", () -> tabs.open("about:blank", false, true));
         addCell(grid, "★", "书签", () -> startActivityForResult(
                 new Intent(this, LibraryActivity.class).putExtra("mode", "bookmark"), REQ_LIBRARY));
@@ -1002,6 +1051,7 @@ public class MainActivity extends AppCompatActivity implements Tab.Host, TabMana
                 t.setTextZoom(prefs.textZoom());
                 t.applyUserAgent();
             }
+            applyUrlBarMode();
         }
     }
 
